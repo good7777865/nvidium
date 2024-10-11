@@ -26,7 +26,7 @@ public class TranslucentTerrainRasterizer extends Phase {
     private final Shader shader = Shader.make()
             .addSource(TASK, ShaderLoader.parse(Identifier.of("nvidium", "terrain/translucent/task.glsl")))
             .addSource(MESH, ShaderLoader.parse(Identifier.of("nvidium", "terrain/translucent/mesh.glsl")))
-            .addSource(FRAGMENT, ShaderLoader.parse(Identifier.of("nvidium", "terrain/translucent/frag.frag")))
+            .addSource(FRAGMENT, ShaderLoader.parse(Identifier.of("nvidium", "terrain/frag.frag"), builder->{builder.add("TRANSLUCENT_PASS");}))
             .compile();
 
     public TranslucentTerrainRasterizer() {

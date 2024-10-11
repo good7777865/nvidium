@@ -6,12 +6,15 @@ import it.unimi.dsi.fastutil.longs.LongSet;
 import me.cortex.nvidium.Nvidium;
 import me.cortex.nvidium.NvidiumWorldRenderer;
 import me.cortex.nvidium.gl.RenderDevice;
+import me.cortex.nvidium.sodiumCompat.INvidiumWorldRendererGetter;
 import me.cortex.nvidium.sodiumCompat.IRepackagedResult;
 import me.cortex.nvidium.util.BufferArena;
 import me.cortex.nvidium.util.SegmentedManager;
 import me.cortex.nvidium.util.UploadingBufferStream;
+import me.jellysquid.mods.sodium.client.render.SodiumWorldRenderer;
 import me.jellysquid.mods.sodium.client.render.chunk.RenderSection;
 import me.jellysquid.mods.sodium.client.render.chunk.compile.ChunkBuildOutput;
+import net.minecraft.client.MinecraftClient;
 import net.minecraft.util.math.ChunkSectionPos;
 import org.joml.Vector3i;
 import org.joml.Vector4i;
@@ -72,7 +75,11 @@ public class SectionManager {
             }
 
             if (terrainAddress == SegmentedManager.SIZE_LIMIT) {
-                Nvidium.LOGGER.error("Terrain arena critically out of memory, expect issues with chunks!!");
+                Nvidium.LOGGER.error("Terrain arena critically out of memory, expect issues with chunks!! " +
+                        " quad_used: " + this.terrainAreana.getUsedMB() +
+                        " physically used: " + this.terrainAreana.getMemoryUsed() +
+                        " limit: " + ((INvidiumWorldRendererGetter)(SodiumWorldRenderer.instance())).getRenderer().getMaxGeometryMemory());
+
                 deleteSection(sectionKey);
                 return;
             }
@@ -97,9 +104,9 @@ public class SectionManager {
         Vector3i min  = output.min();
         Vector3i size = output.size();
 
-        //NOTE:TODO: The y encoded height position only has a range of like 6 bits max, that gives 18 bits free/spare for something
-        // realistically it would only be 16 free bits cause ee but still thats 2 bytes free
+
         //bits 18->26 taken by section id (used for translucency sorting/rendering)
+        // 26->32 is free
         int px = section.getChunkX()<<8 | size.x<<4 | min.x;
         int py = (section.getChunkY()&0x1FF)<<8 | size.y<<4 | min.y | (hideSectionBitSet?1<<17:0) | ((regionManager.getSectionRefId(sectionIdx))<<18);
         int pz = section.getChunkZ()<<8 | size.z<<4 | min.z;
@@ -145,7 +152,10 @@ public class SectionManager {
     private void deleteSection(long sectionKey) {
         int sectionIdx = this.section2id.remove(sectionKey);
         if (sectionIdx != -1) {
-            this.terrainAreana.free(this.section2terrain.remove(sectionKey));
+            int terrainIndex = this.section2terrain.remove(sectionKey);
+            if (terrainIndex != -1) {
+                this.terrainAreana.free(terrainIndex);
+            }
             //Clear the segment
             this.regionManager.removeSection(sectionIdx);
         }
